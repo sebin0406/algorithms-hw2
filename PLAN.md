@@ -20,15 +20,17 @@
 
 ### 구현하며 추가할 파일 및 산출물
 
-- `src/hash_table.py`: 호너 해시와 개별 체이닝을 사용하는 직접 구현 해시 테이블.
-- `src/shortener.py`: URL 검증, 순차 ID 발급, Base62 코드 변환, 양방향 URL 매핑.
-- `src/server.py`: 표준 라이브러리 `http.server` 기반 웹 서버, 입력 화면, 리다이렉트 및 `/table`.
-- `tests/test_hash_table.py`: 해시 테이블의 CRUD·충돌·적재율 테스트.
-- `tests/test_shortener.py`: 입력 검증·중복 처리·ID/코드 발급·양방향 조회 테스트.
-- `tests/test_server.py`: 폼, 리다이렉트, 두 테이블 화면의 HTTP 동작 테스트.
+- `src/hash_table.py`: 호너 해시를 공유하는 개별 체이닝 및 선형 탐사 해시 테이블.
+- `src/shortener.py`: URL 검증, 순차 ID 발급, Base62 코드 변환, 선택한 해시 테이블 방식으로 양방향 URL 매핑.
+- `src/server.py`: 표준 라이브러리 `http.server` 기반 웹 서버, 입력 화면, 리다이렉트 및 두 방식의 `/table`.
+- `tests/test_hash_table.py`: 두 해시 테이블의 인터페이스·충돌·순환 탐사·만재·적재율 테스트.
+- `tests/test_shortener.py`: 두 구현 각각의 입력 검증·중복 처리·ID/코드 발급·양방향 조회 테스트.
+- `tests/test_server.py`: 폼, 리다이렉트, 체이닝 및 선형 탐사 테이블 화면의 HTTP 동작 테스트.
 - `experiments/probe_experiment.py`: 고정 크기 테이블의 성공·실패 탐색 비용 측정.
 - `experiments/results.csv`: 적재율별 측정 결과와 이론값.
 - 실험 SVG 그래프: CSV와 같은 실험 결과를 시각화한다. 구체적인 파일명은 과제 안내에서 정하지 않았으므로 구현 시 정한다.
+- `experiments/compare_hash_tables.py`: Step 6 실험과 산출물을 보존하며 두 방식을 같은 데이터로 비교한다.
+- `experiments/comparison_results.csv`, `experiments/comparison.svg`: 비교 실험의 실측 데이터와 그 데이터에서 생성한 그래프.
 - `PLAN.md`: 본 구현 계획.
 
 ## 2. 구현 순서
@@ -117,3 +119,14 @@
 - `make experiment`으로 CSV와 SVG 생성 및 실험값을 확인한다.
 - `make serve`로 포트 8000에서 실행한 뒤 `/` 입력, 짧은 링크 이동, `/table`의 두 테이블과 해시 계산 상세를 브라우저에서 확인한다.
 - 소스에서 저장·조회 용도의 `dict`, `set`, 내장 `hash()` 사용 여부를 검사한다. 명세에 정하지 않은 오류 응답이나 URL 정책을 임의로 추가하지 않았는지도 확인한다.
+
+### 8단계: 선형 탐사 구현과 비교
+
+- 기존 `HashTable`을 유지하고 같은 인터페이스의 `LinearProbingHashTable`을 추가한다. 선형 탐사는 Horner 해시 인덱스에서 시작해 버킷을 하나씩 순회하고, 끝에 도달하면 0번 버킷으로 순환한다. 만재 상태에서 새 키를 넣으면 오류를 명시하며 기존 키 갱신은 허용한다. 삭제는 추가하지 않는다.
+- 공통 해시 테이블 테스트를 두 구현에 모두 실행하고, 선형 탐사의 wrap-around·연속 충돌·없는 키·만재 경계 테스트를 추가한다.
+- URL 단축기는 구현 클래스를 선택할 수 있게 하되 기본은 기존 개별 체이닝으로 둔다. 두 테이블 모두 선택된 구현을 사용한다.
+- `make serve`는 기본 체이닝을 유지하고 `make serve HASH_TABLE=linear`로 선형 탐사를 실행한다. `/table`에는 선택된 자료구조의 실제 버킷 내용을 보여 주고, 선형 탐사에서는 시작 버킷과 실제로 조사한 칸 및 Horner 계산을 함께 보여 준다.
+- 별도 비교 스크립트에서 4093개 버킷과 고정 시드로 같은 키·실패 탐색 데이터를 두 구현에 사용한다. 적재율 0.1–0.9에서 성공 및 실패 비교 횟수를 재고, 두 이론식과의 차이를 저장한다.
+- Step 6의 `probe_experiment.py`, `results.csv`, `load_factor.svg`는 수정하거나 덮어쓰지 않는다. 비교 결과는 새 CSV·SVG로 생성하고, CSV의 실측값과 이론값이 구별되는지 및 SVG XML이 유효한지 확인한다.
+- 과제 안내는 제출 보고서를 PDF 2쪽 이내로 제한하고 저장소 URL을 첫 페이지에 요구한다. 구현 및 측정 결과를 제공하되 개인 회고(에이전트가 틀린 점과 본인이 알아채고 고친 과정)는 작성자가 직접 기록한다.
+- 마무리 검증은 `make test`, 비교 실험 실행, CSV 행·값 확인, SVG XML 파싱, 기본/선형 서버 선택 가능 여부로 한다. 커밋·머지·push·이슈 종료는 요청이 없으므로 하지 않는다.

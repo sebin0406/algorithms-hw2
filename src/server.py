@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from src.hash_table import HashTable, LinearProbingHashTable
 from src.shortener import URLShortener
 
 
@@ -96,36 +97,74 @@ def _render_horner_details(table, key):
     )
 
 
+def _render_linear_probe_details(table, key):
+    start = table.hash_index(key)
+    steps = []
+    for offset, bucket_index in enumerate(table.probe_path(key)):
+        node = table.buckets[bucket_index]
+        if node is None:
+            result = "비어 있어 탐색 종료"
+        elif node.key == key:
+            result = "키가 일치해 탐색 종료"
+        else:
+            result = f"다음 칸으로 이동 (현재 키: {html.escape(node.key)})"
+        steps.append(
+            "<li>"
+            f"(h₀ + {offset}) mod {table.bucket_count} = {bucket_index}: "
+            f"{result}"
+            "</li>"
+        )
+
+    return (
+        "<details><summary>선형 탐사 경로</summary>"
+        f"<p>시작 버킷 h₀ = {start}; 다음 버킷은 (h₀ + i) mod "
+        f"{table.bucket_count}로 순환합니다.</p>"
+        f"<p>확인한 칸 수: {len(steps)}</p>"
+        f"<ol>{''.join(steps)}</ol></details>"
+    )
+
+
 def _render_table(title, table):
     rows = []
     for bucket_index, first_node in enumerate(table.buckets):
-        chain = []
+        entries = []
         node = first_node
         while node is not None:
             key = str(node.key)
             value = str(node.value)
-            chain.append(
+            probe_details = ""
+            if table.collision_strategy == "linear_probing":
+                probe_details = (
+                    _render_horner_details(table, key)
+                    + _render_linear_probe_details(table, key)
+                )
+            else:
+                probe_details = _render_horner_details(table, key)
+            entries.append(
                 "<li>"
                 f"<strong>키:</strong> <code>{html.escape(key)}</code><br>"
                 f"<strong>값:</strong> <code>{html.escape(value)}</code>"
-                f"{_render_horner_details(table, key)}"
+                f"{probe_details}"
                 "</li>"
             )
-            node = node.next
+            node = node.next if table.collision_strategy == "separate_chaining" else None
 
-        chain_content = "".join(chain) if chain else "<li>비어 있음</li>"
+        chain_content = "".join(entries) if entries else "<li>비어 있음</li>"
         rows.append(
             f"<tr><th scope=\"row\">버킷 {bucket_index}</th>"
             f"<td><ol class=\"chain\">{chain_content}</ol></td></tr>"
         )
 
     load_factor = table.load_factor
+    collision_label = (
+        "선형 탐사" if table.collision_strategy == "linear_probing" else "개별 체이닝"
+    )
     return (
         f"<section><h2>{title}</h2>"
         f"<p>버킷 수: {table.bucket_count} · 항목 수: {len(table)} · "
         f"적재율: {load_factor:.4f}</p>"
         "<div class=\"table-wrap\"><table><thead><tr>"
-        "<th>버킷 번호</th><th>개별 체이닝 (키 → 값)</th>"
+        f"<th>버킷 번호</th><th>{collision_label} (키 → 값)</th>"
         "</tr></thead><tbody>"
         f"{''.join(rows)}</tbody></table></div></section>"
     )
@@ -330,10 +369,23 @@ def main():
     parser = argparse.ArgumentParser(description="Run the URL shortener web server.")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--hash-table",
+        choices=("chaining", "linear"),
+        default="chaining",
+        help="collision strategy to use",
+    )
     args = parser.parse_args()
 
-    server = create_server(host=args.host, port=args.port)
-    print(f"URL shortener listening on http://{args.host}:{args.port}")
+    hash_table_class = (
+        LinearProbingHashTable if args.hash_table == "linear" else HashTable
+    )
+    shortener = URLShortener(hash_table_class=hash_table_class)
+    server = create_server(host=args.host, port=args.port, shortener=shortener)
+    print(
+        f"URL shortener ({args.hash_table}) listening on "
+        f"http://{args.host}:{args.port}"
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

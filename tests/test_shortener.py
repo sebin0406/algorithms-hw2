@@ -1,13 +1,17 @@
 import unittest
 
-from src.hash_table import HashTable
+from src.hash_table import HashTable, LinearProbingHashTable
 from src.shortener import URLShortener
 
 
 class TestURLShortener(unittest.TestCase):
+    hash_table_class = HashTable
 
     def setUp(self):
-        self.shortener = URLShortener()
+        self.shortener = URLShortener(
+            bucket_count=128,
+            hash_table_class=self.hash_table_class,
+        )
 
     def test_shortens_and_expands_urls_with_sequential_base62_codes(self):
         first_url = "https://example.com/a"
@@ -67,14 +71,18 @@ class TestURLShortener(unittest.TestCase):
         url = "https://example.com"
         code = self.shortener.shorten(url)
 
-        self.assertIsInstance(self.shortener.url_to_code, HashTable)
-        self.assertIsInstance(self.shortener.code_to_url, HashTable)
+        self.assertIsInstance(self.shortener.url_to_code, self.hash_table_class)
+        self.assertIsInstance(self.shortener.code_to_url, self.hash_table_class)
         self.assertEqual(self.shortener.url_to_code.get(url), code)
         self.assertEqual(self.shortener.code_to_url.get(code), url)
 
     def test_expand_raises_for_unknown_code(self):
         with self.assertRaises(KeyError):
             self.shortener.expand("unknown")
+
+
+class TestLinearProbingURLShortener(TestURLShortener):
+    hash_table_class = LinearProbingHashTable
 
 
 if __name__ == "__main__":
