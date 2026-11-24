@@ -4,6 +4,7 @@ import unittest
 from urllib.parse import urlencode
 
 from src.server import create_server
+from src.hash_table import LinearProbingHashTable
 from src.shortener import URLShortener
 
 
@@ -102,6 +103,45 @@ class TestShortenerServer(unittest.TestCase):
         self.assertIn("<details>", body)
         self.assertIn("Horner", body)
         self.assertIn("버킷 0", body)
+
+    def test_linear_probing_table_shows_real_probe_paths(self):
+        linear_shortener = URLShortener(
+            bucket_count=2,
+            hash_table_class=LinearProbingHashTable,
+        )
+        linear_shortener.shorten("https://example.com/first")
+        linear_shortener.shorten("https://example.com/second")
+        linear_server = create_server(
+            host="127.0.0.1",
+            port=0,
+            shortener=linear_shortener,
+        )
+        linear_thread = threading.Thread(
+            target=linear_server.serve_forever,
+            daemon=True,
+        )
+        linear_thread.start()
+        connection = http.client.HTTPConnection(
+            "127.0.0.1",
+            linear_server.server_address[1],
+        )
+        try:
+            connection.request("GET", "/table")
+            response = connection.getresponse()
+            body = response.read().decode("utf-8")
+        finally:
+            connection.close()
+            linear_server.shutdown()
+            linear_server.server_close()
+            linear_thread.join()
+
+        self.assertEqual(response.status, 200)
+        self.assertIn("선형 탐사", body)
+        self.assertIn("선형 탐사 경로", body)
+        self.assertIn("확인한 칸 수", body)
+        self.assertIn("Horner 해시 계산 과정", body)
+        self.assertIn("https://example.com/first", body)
+        self.assertIn("https://example.com/second", body)
 
 
 if __name__ == "__main__":

@@ -20,9 +20,9 @@
 | 파일 | 하는 일 |
 | --- | --- |
 | `SPEC.md` | 명세 틀. 에이전트가 초안을 쓰고 **본인이 고칩니다** |
-| `src/` · `tests/` · `experiments/` | 비어 있습니다. 수업에서 채웁니다 |
+| `src/` · `tests/` · `experiments/` | 단축기, 두 해시 테이블 구현, 테스트와 실험 |
 | `tools/catchup.sh` | 수업 중 놓친 단계를 따라잡는 스크립트 |
-| `Makefile` | `make test` · `make serve` · `make experiment` |
+| `Makefile` | 테스트, 서버, Step 6 실험 및 Step 8 비교 실험 |
 
 정답 코드는 들어 있지 않습니다. 에이전트는 작업 공간의 파일을 읽으므로, 정답이
 옆에 있으면 그대로 베껴 와서 연습이 되지 않습니다.
@@ -34,9 +34,15 @@
 | 하고 싶은 것 | 명령 |
 | --- | --- |
 | 테스트 | `make test` |
-| 웹 서버 (포트 8000) | `make serve` |
-| 충돌 실험 | `make experiment` |
+| 웹 서버 (포트 8000, 개별 체이닝) | `make serve` |
+| 웹 서버 (포트 8000, 선형 탐사) | `make serve HASH_TABLE=linear` |
+| Step 6 개별 체이닝 실험 | `make experiment` |
+| Step 8 체이닝·선형 탐사 비교 | `make compare-experiment` |
 | 놓친 단계 따라잡기 | `sh tools/catchup.sh <단계 번호>` |
+
+Step 8 비교 실험은 `experiments/comparison_results.csv`와 CSV에서 생성한
+`experiments/comparison.svg`에 결과를 저장합니다. 기존 Step 6 실험 결과는
+별도로 보존됩니다.
 
 외부 라이브러리는 쓰지 않습니다. Python 표준 모듈만으로 충분합니다.
 

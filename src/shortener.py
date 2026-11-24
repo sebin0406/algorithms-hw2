@@ -5,9 +5,9 @@ from src.hash_table import HashTable
 class URLShortener:
     """Stores URL/code mappings and assigns sequential Base62 codes."""
 
-    def __init__(self, bucket_count=16):
-        self.url_to_code = HashTable(bucket_count)
-        self.code_to_url = HashTable(bucket_count)
+    def __init__(self, bucket_count=16, hash_table_class=HashTable):
+        self.url_to_code = hash_table_class(bucket_count)
+        self.code_to_url = hash_table_class(bucket_count)
         self._next_id = 0
 
     def shorten(self, url):
